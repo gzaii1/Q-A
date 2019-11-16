@@ -22,11 +22,13 @@ class QuestionViewSet(viewsets.ModelViewSet):
 	# url: /question/getAllQuestion/
 	@action(methods=['get'],detail=False)
 	def getAllQuestion(self, request):
-		questions = QuestionSerializer(Question.objects.all().order_by('-question_id'), many=True ).data
+		questions = QuestionSerializer(Question.objects.all().order_by('create_time'), many=True ).data
 		for one in questions:
 			# 返回类型为OrdededDict, 键值对形式存储数据,
 			optionSet = OptionViewSet()
-			one['option_list'] = optionSet.getOptionById(one['question_id'])
+			option_list = optionSet.getOptionById(one['question_id'])
+			one['option_list'] = option_list
+			one['right_answer'] = ["%s"%item['question_index'] for item in filter(lambda n:n['correctness']==True, option_list)]
 		res = {
 			'success':True,
 			'data':questions
@@ -115,16 +117,17 @@ class OptionViewSet(viewsets.ModelViewSet):
 			'data':OptionSerializer(data,many=True,context={'request': request}).data
 		}
 		return Response(res)
-		
+
 	# 获取单个question下的option(根据id)
 	def getOptionById(self, id):
 		data = Option.objects.filter(question_id = id).order_by('-question_index')
 		serializer = OptionSerializer(data,many=True)
-		res = {
-			'success':True,
-			'data':serializer.data,
-			'message':'',
-		}
+		return serializer.data
+	# 获取正确答案
+	def getRightAnswer(self, id):
+		data = Option.objects.filter(question_id = id)
+		serializer = OptionSerializer(data,many=True)
+
 		return serializer.data
 
 	# 增加单条option
@@ -141,7 +144,7 @@ class OptionViewSet(viewsets.ModelViewSet):
 		create_time = responseObj['create_time']
 		correctness = responseObj['correctness']
 		Option.objects.create(**responseObj)
-		
+
 		res = {
 			'success':True,
 			'data':'',
@@ -163,3 +166,30 @@ class OptionViewSet(viewsets.ModelViewSet):
 			'message':'添加成功',
 		}
 		return Response(res)
+
+	# 重新录入表单
+	@action(methods=['post'],detail=False)
+	def updateOptionsById(self, request):
+		responseObj = json.loads(request.body)
+		# 删除该问题下的所有选项 (待改进)
+		serializer = Option.objects.filter(question_id=responseObj['question_id']).delete()
+		# 序列化dumps
+		[self.addOption(item) for item in responseObj['options']]
+
+		res = {
+			'success':True,
+			'data':'',
+			'message':'测试'
+		}
+		return Response(res)
+	# 添加单个option
+	def addOption(self, item):
+		question = Question()
+		question.question_id = item['question_id']
+		option = Option()
+		option.question_id = question
+		option.question_index = item['question_index']
+		option.option_val = item['option_val']
+		option.create_time = item['create_time']
+		option.correctness = item['correctness']
+		option.save()
