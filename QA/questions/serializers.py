@@ -14,4 +14,4 @@ class OptionSerializer(serializers.ModelSerializer):
 	# 	)
 	class Meta:
 		model = Option
-		fields = ['question_id', 'question_index', 'option_val' ,'create_time', 'correctness']
+		fields = ['question_id', 'question_index', 'option_val', 'longtext', 'create_time', 'correctness']

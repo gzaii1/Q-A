@@ -14,3 +14,4 @@ class Option(models.Model):
 	option_val =  models.CharField(max_length=100,null=False, default="")
 	create_time = models.DateTimeField()
 	correctness = models.BooleanField(null=False)
+	longtext = models.TextField(help_text="这个是longtext", default="")

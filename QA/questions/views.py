@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from . models import Question,Option
-from questions.serializers import QuestionSerializer,OptionSerializer
+from questions.serializers import QuestionSerializer, OptionSerializer
 from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -120,7 +120,7 @@ class OptionViewSet(viewsets.ModelViewSet):
 
 	# 获取单个question下的option(根据id)
 	def getOptionById(self, id):
-		data = Option.objects.filter(question_id = id).order_by('-question_index')
+		data = Option.objects.filter(question_id = id).order_by('question_index')
 		serializer = OptionSerializer(data,many=True)
 		return serializer.data
 	# 获取正确答案
@@ -138,13 +138,39 @@ class OptionViewSet(viewsets.ModelViewSet):
 		responseObj = json.loads(request.body)
 		q = Question()
 		q.question_id = responseObj['question_id']
-		responseObj['question_id'] = q
-		question_index = responseObj['question_index']
-		option_val = responseObj['option_val']
-		create_time = responseObj['create_time']
-		correctness = responseObj['correctness']
-		Option.objects.create(**responseObj)
+		obj = {
+			'question_id':q,
+			'question_index' : responseObj['question_index'],
+			'option_val' : responseObj['option_val'],
+			'create_time' : responseObj['create_time'],
+			'correctness' : responseObj['correctness'],
+			'longtext' : responseObj['longtext'],
+		}
 
+		questionWithThisOption = OptionSerializer(Option.objects.filter(option_val=obj['option_val']),many=True).data
+		if not obj['option_val']:
+			res = {
+				'success':False,
+				'data':'',
+				'message':'所填内容不能为空',
+			}
+			return Response(res)
+		# elif responseObj['question_type']=='short':
+		# 	Option.objects.create(**obj)
+		# 	res = {
+		# 		'success':False,
+		# 		'data':'',
+		# 		'message':'短文'
+		# 	}
+		# 	return Response(res)
+		elif q.question_id in ['%s'%item['question_id'] for item  in questionWithThisOption]:
+			res = {
+				'success':False,
+				'data':'',
+				'message':'不能录入已存在的选项'
+			}
+			return Response(res)
+		Option.objects.create(**obj)
 		res = {
 			'success':True,
 			'data':'',
@@ -159,15 +185,78 @@ class OptionViewSet(viewsets.ModelViewSet):
 	@action(methods=['post'],detail=False)
 	def deleteOptionById(self, request):
 		responseObj = json.loads(request.body)
-		Option.objects.filter(question_id=responseObj['question_id']).filter(question_index=responseObj['question_index']).delete()
+		serializer = Option.objects.filter(question_id=responseObj['question_id'])
+		serializer.filter(question_index=responseObj['question_index']).delete()
+		# 删除后重新排序idx
+		idx = 0
+		for item in serializer.all().order_by('question_index'):
+			item.question_index = idx
+			item.save()
+			idx = idx + 1
 		res = {
 			'success':True,
 			'data':'',
-			'message':'添加成功',
+			'message':'删除成功',
 		}
 		return Response(res)
 
+	# 更新单条option (目前只有单选题的功能, 其他功能还未补充, 此外, 检查是否为空和是否为重复的机制需要单独封装)  仅修改选项
+	# 参数:
+	# question_id
+	# question_type
+	# option_val
+	# correctness
+	# question_index
+	# url:/option/updateOneOption/
+	@action(methods=['post'],detail=False)
+	def updateOneOption(self, request):
+		responseObj = json.loads(request.body)
+		question_id = responseObj['question_id']
+		option_val = responseObj['option_val']
+		# 如果为单选
+		if responseObj['question_type'] =='single':
+			# 判断修改的题目是否重复
+			#questionWithThisOption = OptionSerializer(Option.objects.filter(option_val=option_val),many=True).data
+			# if not option_val:
+			# 	res = {
+			# 		'success':False,
+			# 		'data':'',
+			# 		'message':'所填内容不能为空',
+			# 	}
+			# 	return Response(res)
+			# elif question_id in ['%s'%item['question_id'] for item in questionWithThisOption]:
+			# 	res = {
+			# 		'success':False,
+			# 		'data':'',
+			# 		'message':'不能录入已存在的选项'
+			# 	}
+			# 	return Response(res)
+			Option.objects.filter(question_id=responseObj['question_id']).update(correctness=False)
+			Option.objects.filter(question_id=responseObj['question_id']).filter(question_index=responseObj['question_index']).update(correctness=True, option_val=responseObj['option_val'])
+
+			res = {
+				'success':True,
+				'data':'',
+				'message':'已修改答案'
+			}
+			return Response(res)
+		elif responseObj['question_type'] =='multi':
+			Option.objects.filter(question_id=responseObj['question_id']).filter(question_index=responseObj['question_index']).update(correctness=responseObj['correctness'])
+			res = {
+				'success':True,
+				'data':'',
+				'message':'已修改答案'
+			}
+			return Response(res)
+		res = {
+				'success':True,
+				'data':'',
+				'message':'test'
+			}
+		return Response(res)
 	# 重新录入表单
+	# 参数:question_id, options {question_index option_val correctness question_id create_time}
+	# url:/option/updateOptionsById/
 	@action(methods=['post'],detail=False)
 	def updateOptionsById(self, request):
 		responseObj = json.loads(request.body)
@@ -175,7 +264,6 @@ class OptionViewSet(viewsets.ModelViewSet):
 		serializer = Option.objects.filter(question_id=responseObj['question_id']).delete()
 		# 序列化dumps
 		[self.addOption(item) for item in responseObj['options']]
-
 		res = {
 			'success':True,
 			'data':'',
