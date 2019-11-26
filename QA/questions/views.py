@@ -40,7 +40,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
 	# url: /question/createQuestion/
 	@action(methods=['post'],detail=False)
 	def createQuestion(self, request):
-		req = json.loads(request.body)
+		req = json.loads(request.body.decode())
 		localtime = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 		question_id = uuid.uuid4()
 		newOne = {
@@ -63,7 +63,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
 	# url: /question/updateQuestion/
 	@action(methods=['post'],detail=False)
 	def updateQuestion(self, request):
-		req = json.loads(request.body)
+		req = json.loads(request.body.decode())
 		question = Question.objects.get(question_id=req['question_id'])
 		question.question_title = req['question_title']
 		question.question_text = req['question_text']
@@ -81,7 +81,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
 	# url: /question/deleteQuestionById/
 	@action(methods=['post'],detail=False)
 	def deleteQuestionById(self, request):
-		req = json.loads(request.body)
+		req = json.loads(request.body.decode())
 		question = Question.objects.filter(question_id=req['question_id']).delete()
 		res = {
 			'success':True,
@@ -135,7 +135,7 @@ class OptionViewSet(viewsets.ModelViewSet):
 	# url: /options/addOptionById/
 	@action(methods=['post'],detail=False)
 	def addOptionById(self, request):
-		responseObj = json.loads(request.body)
+		responseObj = json.loads(request.body.decode())
 		q = Question()
 		q.question_id = responseObj['question_id']
 		obj = {
@@ -184,7 +184,7 @@ class OptionViewSet(viewsets.ModelViewSet):
 	# url:/options/deleteOptionById/
 	@action(methods=['post'],detail=False)
 	def deleteOptionById(self, request):
-		responseObj = json.loads(request.body)
+		responseObj = json.loads(request.body.decode())
 		serializer = Option.objects.filter(question_id=responseObj['question_id'])
 		serializer.filter(question_index=responseObj['question_index']).delete()
 		# 删除后重新排序idx
@@ -210,7 +210,7 @@ class OptionViewSet(viewsets.ModelViewSet):
 	# url:/option/updateOneOption/
 	@action(methods=['post'],detail=False)
 	def updateOneOption(self, request):
-		responseObj = json.loads(request.body)
+		responseObj = json.loads(request.body.decode())
 		question_id = responseObj['question_id']
 		option_val = responseObj['option_val']
 		# 如果为单选
@@ -259,7 +259,7 @@ class OptionViewSet(viewsets.ModelViewSet):
 	# url:/option/updateOptionsById/
 	@action(methods=['post'],detail=False)
 	def updateOptionsById(self, request):
-		responseObj = json.loads(request.body)
+		responseObj = json.loads(request.body.decode())
 		# 删除该问题下的所有选项 (待改进)
 		serializer = Option.objects.filter(question_id=responseObj['question_id']).delete()
 		# 序列化dumps
